@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แอปเช็กข้อความมิจฉาชีพ (Anti-Scam Checker)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Mitr', sans-serif;
+            background-color: #fefce8;
+        }
+        .bounce-animation {
+            animation: bounce 1s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+            50% { transform: none; animation-timing-function: cubic-bezier(0,0,0.2,1); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white w-full max-w-md rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-yellow-100 overflow-hidden">
+        
+        <div class="bg-yellow-400 text-gray-900 p-8 text-center">
+            <div class="flex justify-center mb-3">
+                <i data-lucide="shield-alert" class="w-10 h-10 text-gray-900"></i>
+            </div>
+            <h1 class="text-2xl font-semibold">เช็กข้อความมิจฉาชีพ</h1>
+            <p class="text-gray-700 mt-2 text-sm font-light">ให้ AI ช่วยตรวจสอบก่อนกดลิงก์หรือโอนเงิน</p>
+        </div>
+
+        <div class="p-6 md:p-8">
+            
+            <label for="messageInput" class="block text-gray-800 font-medium mb-3">
+                วางข้อความหรือลิงก์ที่สงสัย:
+            </label>
+            <textarea id="messageInput" rows="4" 
+                class="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 text-gray-700 focus:bg-white focus:border-yellow-400 focus:ring-4 focus:ring-yellow-50 outline-none transition-all resize-none"
+                placeholder="เช่น: คุณได้รับสิทธิ์เงินกู้ 50,000 บาท..."></textarea>
+
+            <div class="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <button onclick="setExample(1)" class="whitespace-nowrap px-4 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-full text-sm transition-colors">
+                    + การไฟฟ้า
+                </button>
+                <button onclick="setExample(2)" class="whitespace-nowrap px-4 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-full text-sm transition-colors">
+                    + พัสดุตกค้าง
+                </button>
+            </div>
+
+            <button id="checkButton" onclick="analyzeMessage()" 
+                class="w-full mt-6 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium py-3.5 rounded-2xl text-lg transition-transform transform active:scale-[0.98] flex justify-center items-center gap-2">
+                <i data-lucide="search" class="w-5 h-5"></i>
+                ตรวจสอบความเสี่ยง
+            </button>
+
+            <div id="loadingState" class="hidden mt-8 text-center flex-col items-center justify-center">
+                <div class="flex gap-2 mb-4">
+                    <div class="w-3 h-3 bg-yellow-400 rounded-full bounce-animation" style="animation-delay: 0s"></div>
+                    <div class="w-3 h-3 bg-yellow-400 rounded-full bounce-animation" style="animation-delay: 0.1s"></div>
+                    <div class="w-3 h-3 bg-yellow-400 rounded-full bounce-animation" style="animation-delay: 0.2s"></div>
+                </div>
+                <p class="text-gray-500 font-light">กำลังวิเคราะห์ข้อความ...</p>
+            </div>
+
+            <div id="errorState" class="hidden mt-6 bg-red-50 text-red-600 rounded-2xl p-4 text-center text-sm">
+                <i data-lucide="alert-circle" class="w-6 h-6 mx-auto mb-2"></i>
+                <p id="errorMessage"></p>
+            </div>
+
+            <div id="resultSection" class="hidden mt-8 flex-col gap-5">
+                
+                <div id="riskBadge" class="p-5 rounded-2xl text-center flex flex-col items-center justify-center transition-all">
+                    <i id="riskIcon" class="w-10 h-10 mb-2"></i>
+                    <h2 class="text-lg font-medium" id="riskTitle">ระดับความเสี่ยง: -</h2>
+                </div>
+
+                <div>
+                    <h3 class="font-medium text-gray-800 flex items-center gap-2 mb-2 text-sm">
+                        <i data-lucide="file-text" class="w-4 h-4 text-yellow-500"></i> สรุปสั้นๆ
+                    </h3>
+                    <p id="resultSummary" class="text-gray-600 bg-gray-50 p-4 rounded-2xl text-sm leading-relaxed"></p>
+                </div>
+
+                <div>
+                    <h3 class="font-medium text-gray-800 flex items-center gap-2 mb-2 text-sm">
+                        <i data-lucide="help-circle" class="w-4 h-4 text-yellow-500"></i> ทำไมถึงอันตราย?
+                    </h3>
+                    <p id="resultExplanation" class="text-gray-600 bg-gray-50 p-4 rounded-2xl text-sm leading-relaxed"></p>
+                </div>
+
+                <div>
+                    <h3 class="font-medium text-gray-800 flex items-center gap-2 mb-2 text-sm">
+                        <i data-lucide="check-circle-2" class="w-4 h-4 text-yellow-500"></i> สิ่งที่ควรทำ
+                    </h3>
+                    <p id="resultAction" class="text-gray-900 bg-yellow-50 p-4 rounded-2xl text-sm leading-relaxed"></p>
+                </div>
+
+                <button onclick="resetApp()" class="mt-4 text-gray-400 hover:text-gray-700 text-sm text-center w-full py-2 transition-colors">
+                    หมุนเวียนตรวจสอบข้อความอื่น
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // ใส่ API Key ของคุณ
+        const apiKey = "AIzaSyCcOPTfoe2iqYACcs8vPdlxX5LCzB2YtkA"; 
+
+        function setExample(type) {
+            const input = document.getElementById('messageInput');
+            if (type === 1) {
+                input.value = "การไฟฟ้าส่วนภูมิภาค ขอแจ้งให้ทราบว่าท่านมีสิทธิ์รับเงินคืนประกันการใช้ไฟฟ้าจำนวน 2,000 บาท กรุณาคลิกลิงก์เพื่อยืนยันตัวตน http://pea-th-refund.com";
+            } else if (type === 2) {
+                input.value = "Flash Express: พัสดุของท่าน TH01928374 ไม่สามารถจัดส่งได้เนื่องจากที่อยู่ไม่ชัดเจน กรุณาชำระค่าดำเนินการจัดส่งใหม่ 15 บาท ที่ลิงก์นี้ bit.ly/flash-pay";
+            }
+        }
+
+        function resetApp() {
+            document.getElementById('messageInput').value = '';
+            document.getElementById('resultSection').classList.add('hidden');
+            document.getElementById('errorState').classList.add('hidden');
+            document.getElementById('messageInput').focus();
+        }
+
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        async function fetchWithRetry(prompt, systemInstruction) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] },
+                generationConfig: { 
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            riskLevel: { type: "STRING", description: "สูง, ปานกลาง, หรือ ต่ำ" },
+                            summary: { type: "STRING", description: "สรุปสั้นๆ 1 ประโยค โดยแทนผู้ใช้ว่า 'คุณ' และลงท้ายด้วยคำว่า 'ครับ'" },
+                            explanation: { type: "STRING", description: "อธิบายเหตุผลด้วยภาษาที่เข้าใจง่ายมาก ไม่ใช้ศัพท์เทคนิค โดยแทนผู้ใช้ว่า 'คุณ' และลงท้ายด้วยคำว่า 'ครับ'" },
+                            action: { type: "STRING", description: "คำแนะนำว่าควรทำอย่างไรต่อไป โดยแทนผู้ใช้ว่า 'คุณ' และลงท้ายด้วยคำว่า 'ครับ'" }
+                        },
+                        required: ["riskLevel", "summary", "explanation", "action"]
+                    }
+                }
+            };
+
+            const delays = [1000, 2000, 4000];
+            let lastError;
+
+            for (let i = 0; i < 3; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const result = await response.json();
+                    const textContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (!textContent) throw new Error("API ส่งข้อมูลกลับมาไม่ครบถ้วน");
+
+                    return JSON.parse(textContent);
+
+                } catch (error) {
+                    lastError = error;
+                    if (i < 2) await sleep(delays[i]);
+                }
+            }
+            throw lastError;
+        }
+
+        async function analyzeMessage() {
+            const inputElement = document.getElementById('messageInput');
+            const message = inputElement.value.trim();
+            
+            const errorState = document.getElementById('errorState');
+            const errorMessage = document.getElementById('errorMessage');
+            const loadingState = document.getElementById('loadingState');
+            const resultSection = document.getElementById('resultSection');
+            const checkButton = document.getElementById('checkButton');
+
+            errorState.classList.add('hidden');
+            resultSection.classList.add('hidden');
+
+            if (!message) {
+                errorMessage.textContent = "กรุณาวางข้อความที่ต้องการตรวจสอบก่อนครับ";
+                errorState.classList.remove('hidden');
+                inputElement.focus();
+                return;
+            }
+
+            loadingState.classList.remove('hidden');
+            checkButton.disabled = true;
+            checkButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+            const systemInstruction = `
+                คุณคือผู้เชี่ยวชาญด้านความปลอดภัยไซเบอร์และนักจิตวิทยาที่มีหน้าที่ช่วยเหลือผู้ใช้งานชาวไทย 
+                หน้าที่ของคุณคือวิเคราะห์ข้อความ SMS, ข้อความแชท หรือลิงก์ ว่าเป็นมิจฉาชีพหรือไม่
+                
+                ข้อกำหนดในการตอบอย่างเคร่งครัด:
+                1. ใช้ภาษาไทยที่เข้าใจง่ายที่สุด หลีกเลี่ยงศัพท์เทคนิคทางคอมพิวเตอร์
+                2. แสดงความห่วงใย เป็นมิตร และสุภาพ
+                3. ต้องแทนตัวผู้ใช้ว่า "คุณ" เสมอ และต้องลงท้ายประโยคด้วยคำว่า "ครับ" ทุกครั้ง
+                4. ตอบสนองเป็นรูปแบบ JSON ตาม Schema ที่กำหนดไว้อย่างเคร่งครัด
+                
+                เกณฑ์การประเมินความเสี่ยง:
+                - สูง (High): มีการเร่งรัดให้ทำทันที, มีลิงก์แปลกปลอม, อ้างหน่วยงานรัฐ/ธนาคาร, บอกว่าได้รางวัล/มีพัสดุตกค้าง
+                - ปานกลาง (Medium): โฆษณาชวนเชื่อที่เกินจริง, การตลาดที่แนบลิงก์
+                - ต่ำ (Low): ข้อความทั่วไปจากบุคคลที่รู้จักแน่ชัด หรือข้อความแจ้งเตือนปกติที่ไม่มีลิงก์
+            `;
+
+            const prompt = `ช่วยวิเคราะห์ข้อความนี้ให้หน่อย: "${message}"`;
+
+            try {
+                if(!apiKey) {
+                    throw new Error("กรุณาใส่ API Key ในโค้ดก่อนใช้งานจริงครับ");
+                }
+                const analysisResult = await fetchWithRetry(prompt, systemInstruction);
+                renderResult(analysisResult);
+            } catch (error) {
+                errorMessage.textContent = error.message.includes("API Key") ? error.message : "เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งครับ";
+                errorState.classList.remove('hidden');
+            } finally {
+                loadingState.classList.add('hidden');
+                checkButton.disabled = false;
+                checkButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                lucide.createIcons();
+            }
+        }
+
+        function renderResult(data) {
+            const resultSection = document.getElementById('resultSection');
+            const riskBadge = document.getElementById('riskBadge');
+            const riskIcon = document.getElementById('riskIcon');
+            const riskTitle = document.getElementById('riskTitle');
+            
+            riskBadge.className = "p-4 rounded-2xl text-center flex flex-col items-center justify-center transition-all";
+            
+            if (data.riskLevel === 'สูง') {
+                riskBadge.classList.add('bg-red-50', 'text-red-600');
+                riskIcon.setAttribute('data-lucide', 'shield-alert');
+                riskTitle.textContent = "ความเสี่ยงสูงมาก! 🚨";
+            } else if (data.riskLevel === 'ปานกลาง') {
+                riskBadge.classList.add('bg-orange-50', 'text-orange-600');
+                riskIcon.setAttribute('data-lucide', 'alert-triangle');
+                riskTitle.textContent = "น่าสงสัย ระวังไว้ก่อน ⚠️";
+            } else {
+                riskBadge.classList.add('bg-green-50', 'text-green-600');
+                riskIcon.setAttribute('data-lucide', 'shield-check');
+                riskTitle.textContent = "ปลอดภัย ✅";
+            }
+
+            document.getElementById('resultSummary').textContent = data.summary;
+            document.getElementById('resultExplanation').textContent = data.explanation;
+            document.getElementById('resultAction').textContent = data.action;
+
+            resultSection.classList.remove('hidden');
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
