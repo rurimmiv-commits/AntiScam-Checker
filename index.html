@@ -84,15 +84,8 @@
     <script>
         lucide.createIcons();
 
-        // 💡 ใส่ API Keys ทั้ง 3 ตัวเรียบร้อยแล้วครับ
-        const apiKeys = [
-            "AIzaSyBKwqiwbAoxrKJe8bY9J0dRzYI9lu6qJyM", // ตัวที่ 1
-            "AIzaSyDs546CO_0XyDwkJ4BQZ8p5Q4VSlP154XQ", // ตัวที่ 2
-            "AIzaSyD46Eddsx-Jx3yBU2eo1k627JqdryUs1xc"  // ตัวที่ 3
-        ];
-
-        // ตัวแปรจำว่าตอนนี้กำลังใช้ Key ลำดับที่เท่าไหร่ (เริ่มจาก 0 คือตัวแรก)
-        let currentKeyIndex = 0; 
+        // 💡 ใส่ API Key เหลือแค่ 1 ตัวตามที่ต้องการครับ
+        const apiKey = "AIzaSyBKwqiwbAoxrKJe8bY9J0dRzYI9lu6qJyM"; 
 
         function setExample(type) {
             const input = document.getElementById('messageInput');
@@ -107,7 +100,12 @@
             document.getElementById('messageInput').focus();
         }
 
-        async function fetchWithKeyRotation(prompt, systemInstruction) {
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        async function fetchWithRetry(prompt, systemInstruction) {
+            // 💡 แก้ไขโมเดลกลับมาเป็น 1.5-flash เพื่อแก้ปัญหา 403 Forbidden
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -126,12 +124,10 @@
                 }
             };
 
-            // วนลูปเช็กไปเรื่อยๆ ตราบใดที่ยังมี Key ให้ใช้
-            while (currentKeyIndex < apiKeys.length) {
-                const activeKey = apiKeys[currentKeyIndex];
-                
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+            const delays = [1000, 2000, 4000];
+            let lastError;
 
+            for (let i = 0; i < 3; i++) {
                 try {
                     const response = await fetch(url, {
                         method: 'POST',
@@ -139,29 +135,21 @@
                         body: JSON.stringify(payload)
                     });
 
-                    // ถ้าเจอ Error 429 แปลว่าโควต้า Key ปัจจุบันเต็ม
-                    if (response.status === 429) {
-                        console.warn(`API Key ตัวที่ ${currentKeyIndex + 1} โควต้าเต็ม! กำลังสลับไปใช้ตัวถัดไป...`);
-                        currentKeyIndex++; 
-                        continue; // กระโดดกลับไปเริ่มลูปใหม่ด้วย Key ตัวถัดไปทันที
-                    }
-
                     if (!response.ok) throw new Error(`เกิดข้อผิดพลาดในการเชื่อมต่อ (Status: ${response.status})`);
 
                     const result = await response.json();
                     const textContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
                     if (!textContent) throw new Error("API ส่งข้อมูลกลับมาไม่ครบถ้วน");
 
                     return JSON.parse(textContent);
 
                 } catch (error) {
-                    // ถ้าเป็น Error อื่นๆ เช่น เน็ตหลุด ให้โยน Error ออกไปแสดงบนหน้าเว็บเลย
-                    throw error; 
+                    lastError = error;
+                    if (i < 2) await sleep(delays[i]);
                 }
             }
-
-            // ถ้าหลุดลูปนี้มาได้ แปลว่า Key ทุกตัวถูกใช้จนโควต้าเต็มหมดแล้ว
-            throw new Error("ขออภัยครับ คิวประมวลผลของเราเต็มแล้ว (API Quota Exceeded) กรุณาลองใหม่ในภายหลังครับ");
+            throw lastError;
         }
 
         async function analyzeMessage() {
@@ -197,7 +185,9 @@
             `;
 
             try {
-                const analysisResult = await fetchWithKeyRotation(`ช่วยวิเคราะห์ข้อความนี้ให้หน่อย: "${message}"`, systemInstruction);
+                if(!apiKey) throw new Error("กรุณาใส่ API Key ในโค้ดก่อนใช้งานจริงครับ");
+                
+                const analysisResult = await fetchWithRetry(`ช่วยวิเคราะห์ข้อความนี้ให้หน่อย: "${message}"`, systemInstruction);
                 renderResult(analysisResult);
             } catch (error) {
                 errorMessage.textContent = error.message;
